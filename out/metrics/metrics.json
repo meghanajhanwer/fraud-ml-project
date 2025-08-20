@@ -1,0 +1,26 @@
+{
+  "xgb": {
+    "model_type": "xgb",
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0
+  },
+  "lstm": {
+    "model_type": "lstm",
+    "precision": 0,
+    "recall": 0,
+    "f1": 0,
+    "roc_auc": 0,
+    "pr_auc": 0
+  },
+  "nlp": {
+    "model_type": "nlp",
+    "precision": 0.047619047619047616,
+    "recall": 0.08695652173913043,
+    "f1": 0.06153846153846154,
+    "roc_auc": 0.46364529599606974,
+    "pr_auc": 0.06256426161546248
+  }
+}

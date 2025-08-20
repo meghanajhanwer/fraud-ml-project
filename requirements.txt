@@ -1,0 +1,18 @@
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.4.2
+imbalanced-learn==0.12.2
+xgboost==2.0.3
+matplotlib==3.8.4
+google-cloud-bigquery==3.23.1
+google-cloud-bigquery-storage==2.25.0
+google-cloud-storage==2.16.0
+google-cloud-aiplatform==1.66.0
+pyarrow==15.0.2
+tqdm==4.66.4
+joblib==1.4.2
+db-dtypes
+fastapi==0.111.*
+uvicorn[standard]==0.30.*
+google-cloud-aiplatform==1.*   # already present in your project, keep it
+google-cloud-storage==2.*      # already present, keep it

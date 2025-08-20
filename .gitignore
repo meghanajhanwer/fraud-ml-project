@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+.env
+*.log
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Editors/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Build output
+dashboard/site/
+
+# Credentials (DO NOT COMMIT KEYS)
+*service-account*.json
+*credentials*.json
+*.pem
+*.p12

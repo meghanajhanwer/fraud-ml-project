@@ -1,0 +1,4 @@
+# Upload only the CF code we need
+*
+!main.py
+!requirements.txt
