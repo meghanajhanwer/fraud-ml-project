@@ -1,42 +1,56 @@
+import os, os.path
+
+# ------------ Project / Regions ------------
 PROJECT_ID = "resonant-idea-467410-u9"
 REGION = "us-central1"
+
+# ------------ BigQuery ------------
 BQ_LOCATION = "us-central1"
-
-# Buckets
-INGEST_BUCKET = "resonant-idea-467410-u9-gcs-to-bq"
-ARTIFACTS_GCS_PREFIX = f"gs://{INGEST_BUCKET}/artifacts"
-
-# BigQuery
 RAW_DATASET = "ingestion"
-RAW_TABLE = "bank_transactions_raw"  # landing
+RAW_TABLE = "bank_transactions_raw"
 CURATED_DATASET = "curated"
-CURATED_TABLE = "bank_transactions_modelready"  # modeling-ready table
+CURATED_TABLE = "bank_transactions_modelready"
 
-# Columns
-ID_COL = "TransactionID"
-TIME_COL = "TransactionDate"
-TARGET_COL = "is_fraud"        # *** Assumed present ***
-POSITIVE_CLASS = 1
+# ------------ Storage / Artifacts ------------
+BUCKET = "resonant-idea-467410-u9-gcs-to-bq"
+ARTIFACTS_GCS_BASE = f"gs://{BUCKET}/artifacts"
 
-# Modeling
+# Dataset toggle: "primary" (BQ curated) or "ulb" (ULB CSV)
+DATASET = os.getenv("DATASET", "primary").lower()
+ARTIFACTS_GCS_PREFIX = f"{ARTIFACTS_GCS_BASE}/datasets/{DATASET}"
+
+# ULB CSV locations
+ULB_CSV_LOCAL = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "creditcard.csv")
+ULB_GCS_PATH  = f"gs://{BUCKET}/external/ulb/creditcard.csv"
+
+# ------------ Modeling / Splits / Randomness ------------
+TARGET_COL = "is_fraud"
+ID_COL     = "TransactionID"
+TIME_COL   = "TransactionDate"
+
+VAL_SIZE    = 0.15
+TEST_SIZE   = 0.15
 RANDOM_SEED = 42
-TEST_SIZE = 0.15
-VAL_SIZE = 0.15   # train remainder is 0.70
-SEQUENCE_LENGTH = 10
+SPLIT_STRATEGY = os.getenv("SPLIT_STRATEGY", "random").lower()  # "random" | "group" | "time"
+LSTM_SEQ_LEN = 10
 
-# Registrations / Endpoint
+SMOTE_POLICY = os.getenv("SMOTE_POLICY", "auto").lower()
+
+# Optional: lighter XGB when on big datasets like ULB
+XGB_LIGHT = os.getenv("XGB_LIGHT", "1") == "1"
+
+# ------------ Vertex AI prebuilt prediction images ------------
+# (See official list for current versions.)
+SKLEARN_IMAGE_URI  = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-5:latest"
+XGBOOST_IMAGE_URI  = "us-docker.pkg.dev/vertex-ai/prediction/xgboost-cpu.2-0:latest"
+TENSORFLOW_IMAGE_URI = "us-docker.pkg.dev/vertex-ai/prediction/tf2-cpu.2-14:latest"
+
 XGB_DISPLAY_NAME = "fraud-xgb"
-LSTM_DISPLAY_NAME = "fraud-lstm"
 NLP_DISPLAY_NAME = "fraud-nlp"
-ENDPOINT_DISPLAY_NAME = "fraud-endpoint"
+LSTM_DISPLAY_NAME = "fraud-lstm"
 
-# Vertex AI serving containers (prebuilt)
-SKLEARN_IMAGE_URI = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-0:latest"
-XGBOOST_IMAGE_URI = "us-docker.pkg.dev/vertex-ai/prediction/xgboost-cpu.1-7:latest"
-TENSORFLOW_IMAGE_URI = "us-docker.pkg.dev/vertex-ai/prediction/tf2-cpu.2-15:latest"
+ENDPOINT_DISPLAY_NAME   = "fraud-endpoint"
+ENDPOINT_MACHINE_TYPE   = "n1-standard-2"
 
-# Compute
-ENDPOINT_MACHINE_TYPE = "n1-standard-2"
-
-# Split strategy: "random" (existing split_data), "group", or "time"
-SPLIT_STRATEGY = "random"   # change to "group" or "time" when you want
+def artifacts_prefix_for(ds: str) -> str:
+    return f"{ARTIFACTS_GCS_BASE}/datasets/{ds}"

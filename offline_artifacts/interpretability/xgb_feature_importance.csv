@@ -1,0 +1,9 @@
+feature,gain
+num__risk_score,880.3447265625
+num__flag_rapid_repeat_high,821.8123168945312
+num__flag_high_amount,147.70127868652344
+num__flag_high_ratio,106.70056915283203
+cat__DeviceID_D000618,28.2178955078125
+num__amt_to_bal,22.926652908325195
+num__TransactionAmount,16.79473876953125
+num__AccountBalance,11.891830444335938

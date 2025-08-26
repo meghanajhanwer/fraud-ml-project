@@ -1,0 +1,19 @@
+{
+  "TransactionID": "T-demo-001",
+  "AccountID": "A-123",
+  "TransactionAmount": 249.99,
+  "TransactionDate": "2024-05-03T14:12:00Z",
+  "TransactionType": "purchase",
+  "Location": "NY",
+  "DeviceID": "mobile",
+  "IP_Address": "203.0.113.15",
+  "MerchantID": "M-778",
+  "Channel": "mobile_app",
+  "CustomerAge": 34,
+  "CustomerOccupation": "Engineer",
+  "TransactionDuration": 45,
+  "LoginAttempts": 1,
+  "AccountBalance": 1200.50,
+  "PreviousTransactionDate": "2024-05-02T10:00:00Z",
+  "nlp_text": ""
+}

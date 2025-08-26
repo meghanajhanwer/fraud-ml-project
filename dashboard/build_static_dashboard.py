@@ -3,42 +3,38 @@ import io, json, csv, base64, os
 from typing import Optional
 from google.cloud import storage
 
-# These two are used for captions only; artifacts are derived from ARTIFACTS_GCS_PREFIX.
-PROJECT_ID_DEFAULT = "resonant-idea-467410-u9"
-
-from config.config import ARTIFACTS_GCS_PREFIX, PROJECT_ID as CFG_PROJECT
+from config.config import ARTIFACTS_GCS_BASE, ARTIFACTS_GCS_PREFIX, PROJECT_ID
 
 def _storage():
-    return storage.Client(project=CFG_PROJECT)
+    from config.config import PROJECT_ID
+    return storage.Client(project=PROJECT_ID)
 
-def _bucket_blob_from_prefix(rel_path: str):
-    # rel_path like "metrics/metrics.json"
-    assert ARTIFACTS_GCS_PREFIX.startswith("gs://")
-    bucket = ARTIFACTS_GCS_PREFIX.split("gs://",1)[1].split("/",1)[0]
-    prefix = ARTIFACTS_GCS_PREFIX.split(bucket + "/", 1)[1].rstrip("/")
+def _bucket_blob_from_gcs_uri(gcs_uri: str, rel_path: str):
+    assert gcs_uri.startswith("gs://")
+    _, rest = gcs_uri.split("gs://", 1)
+    bucket, prefix = rest.split("/", 1)
+    prefix = prefix.rstrip("/")
     blob_path = f"{prefix}/{rel_path}".lstrip("/")
     return bucket, blob_path
 
-def dl_bytes(rel_path: str) -> Optional[bytes]:
-    bucket, blob_path = _bucket_blob_from_prefix(rel_path)
+def dl_bytes(prefix_uri: str, rel_path: str) -> Optional[bytes]:
+    bucket, blob_path = _bucket_blob_from_gcs_uri(prefix_uri, rel_path)
     blob = _storage().bucket(bucket).blob(blob_path)
     return blob.download_as_bytes() if blob.exists() else None
 
-def dl_text(rel_path: str) -> Optional[str]:
-    b = dl_bytes(rel_path)
-    return b.decode("utf-8") if b else None
+def dl_text(prefix_uri: str, rel_path: str) -> Optional[str]:
+    b = dl_bytes(prefix_uri, rel_path);  return b.decode("utf-8") if b else None
 
-def embed_png_b64(rel_path: str) -> Optional[str]:
-    b = dl_bytes(rel_path)
+def embed_png_b64(prefix_uri: str, rel_path: str) -> Optional[str]:
+    b = dl_bytes(prefix_uri, rel_path)
     return "data:image/png;base64," + base64.b64encode(b).decode("ascii") if b else None
 
 def json_table(jtxt: Optional[str], title: str, cols=None):
-    if not jtxt:
-        return f"<h3>{title}</h3><p><em>Not found.</em></p>"
+    if not jtxt: return f"<h3>{title}</h3><p><em>Not found.</em></p>"
     obj = json.loads(jtxt)
     if isinstance(obj, dict) and cols:
         models = sorted(obj.keys())
-        head = "<tr><th>model_type</th>"+ "".join(f"<th>{c}</th>" for c in cols) +"</tr>"
+        head = "<tr><th>model_type</th>" + "".join(f"<th>{c}</th>" for c in cols) + "</tr>"
         body = ""
         for m in models:
             row = obj[m]
@@ -48,45 +44,48 @@ def json_table(jtxt: Optional[str], title: str, cols=None):
     return f"<h3>{title}</h3><pre>{json.dumps(obj, indent=2)}</pre>"
 
 def csv_tbl(txt, title):
-    if not txt:
-        return f"<h3>{title}</h3><p><em>Not found.</em></p>"
+    if not txt: return f"<h3>{title}</h3><p><em>Not found.</em></p>"
     rows = list(csv.reader(io.StringIO(txt)))
-    if not rows:
-        return f"<h3>{title}</h3><p><em>Empty.</em></p>"
+    if not rows: return f"<h3>{title}</h3><p><em>Empty.</em></p>"
     thead = "<tr>" + "".join(f"<th>{h}</th>" for h in rows[0]) + "</tr>"
     body  = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows[1:])
     table = f"<table class='table table-sm table-striped table-bordered mb-2'><thead>{thead}</thead><tbody>{body}</tbody></table>"
     return f"<h3>{title}</h3><div class='table-responsive'>{table}</div>"
 
-def build_html(project_id: str = PROJECT_ID_DEFAULT) -> str:
-    # Metrics (val/test) + comparison bar
-    m_val = dl_text("metrics/metrics.json")
-    m_tst = dl_text("metrics/metrics_test.json")
-    cmp_b64 = embed_png_b64("metrics/metrics_compare.png")
+def build_html(project_id: str, ds: Optional[str] = None) -> str:
+    # Which dataset path to display
+    ds = (ds or ARTIFACTS_GCS_PREFIX.split("/datasets/")[-1]).lower()
+    ds_prefix = f"{ARTIFACTS_GCS_BASE}/datasets/{ds}"
 
-    # Thresholds + tuned confusions + calibration
-    thr_json = dl_text("metrics/thresholds.json")
-    conf_xgb_tuned = embed_png_b64("plots/confusion_xgb_tuned.png")
-    conf_nlp_tuned = embed_png_b64("plots/confusion_nlp_tuned.png")
-    cal_xgb = embed_png_b64("plots/calibration_xgb.png")
-    cal_nlp = embed_png_b64("plots/calibration_nlp.png")
+    # Also a global cross-domain area (not dataset-scoped)
+    cross_prefix = ARTIFACTS_GCS_BASE
 
-    # Ablation
-    abl = dl_text("ablation/ablation_results.json")
-    abl_fig = embed_png_b64("ablation/ablation_compare_f1.png")
+    # Dataset-specific
+    m_val = dl_text(ds_prefix, "metrics/metrics.json")
+    m_tst = dl_text(ds_prefix, "metrics/metrics_test.json")
+    cmp_b64 = embed_png_b64(ds_prefix, "metrics/metrics_compare.png")
 
-    # Interpretability
-    xgb_imp_fig = embed_png_b64("interpretability/xgb_feature_importance_top20.png")
-    nlp_pos = embed_png_b64("interpretability/nlp_top_terms_positive.png")
-    nlp_neg = embed_png_b64("interpretability/nlp_top_terms_negative.png")
+    thr_json = dl_text(ds_prefix, "metrics/thresholds.json")
+    conf_xgb_tuned = embed_png_b64(ds_prefix, "plots/confusion_xgb_tuned.png")
+    conf_nlp_tuned = embed_png_b64(ds_prefix, "plots/confusion_nlp_tuned.png")
+    cal_xgb = embed_png_b64(ds_prefix, "plots/calibration_xgb.png")
+    cal_nlp = embed_png_b64(ds_prefix, "plots/calibration_nlp.png")
 
-    # EDA tables
-    head_csv     = dl_text("eda/head.csv")
-    desc_num_csv = dl_text("eda/describe_numeric.csv")
-    desc_cat_csv = dl_text("eda/describe_categorical.csv")
+    abl = dl_text(ds_prefix, "ablation/ablation_results.json")
+    abl_fig = embed_png_b64(ds_prefix, "ablation/ablation_compare_f1.png")
 
-    def img_if(b64, title):
-        return (f"<h4>{title}</h4><img src='{b64}'/>") if b64 else f"<p><em>{title} not found.</em></p>"
+    xgb_imp_fig = embed_png_b64(ds_prefix, "interpretability/xgb_feature_importance_top20.png")
+    nlp_pos = embed_png_b64(ds_prefix, "interpretability/nlp_top_terms_positive.png")
+    nlp_neg = embed_png_b64(ds_prefix, "interpretability/nlp_top_terms_negative.png")
+
+    head_csv     = dl_text(ds_prefix, "eda/head.csv")
+    desc_num_csv = dl_text(ds_prefix, "eda/describe_numeric.csv")
+    desc_cat_csv = dl_text(ds_prefix, "eda/describe_categorical.csv")
+
+    # Cross-domain summary
+    cd_summary = dl_text(cross_prefix, "cross_domain/summary.json")
+
+    def img_if(b64, title): return (f"<h4>{title}</h4><img src='{b64}'/>") if b64 else f"<p><em>{title} not found.</em></p>"
 
     html = f"""<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -95,10 +94,14 @@ def build_html(project_id: str = PROJECT_ID_DEFAULT) -> str:
 <style>body{{padding:20px}} img{{max-width:100%;height:auto}} .card{{margin-bottom:20px}} .table{{font-size:12px}} .card-body{{overflow:auto}}</style>
 </head><body><div class="container-fluid">
   <h1 class="mb-3">📊 Fraud Detection Dashboard</h1>
-  <p class="text-muted">Project: <code>{project_id}</code> — Artifacts root: <code>{ARTIFACTS_GCS_PREFIX}</code></p>
+  <p class="text-muted">Project: <code>{project_id}</code> — Artifacts: <code>{ds_prefix}</code></p>
+  <p>Dataset selector:
+    <a href="?ds=primary" class="btn btn-sm btn-outline-primary">primary</a>
+    <a href="?ds=ulb" class="btn btn-sm btn-outline-primary">ulb</a>
+  </p>
 
   <div class="card"><div class="card-body">
-    <h2>Model Metrics</h2>
+    <h2>Model Metrics ({ds})</h2>
     {json_table(m_val, "Validation metrics", cols=["accuracy","precision","recall","f1","roc_auc","pr_auc"])}
     <h3>Comparison (Accuracy / Precision / Recall / F1 / ROC AUC)</h3>
     {("<img src='"+cmp_b64+"'/>" if cmp_b64 else "<p><em>Comparison chart not found.</em></p>")}
@@ -119,7 +122,7 @@ def build_html(project_id: str = PROJECT_ID_DEFAULT) -> str:
   </div></div>
 
   <div class="card"><div class="card-body">
-    <h2>Ablation: Drop ID-like features</h2>
+    <h2>Ablation (drop ID-like features)</h2>
     {json_table(abl, "Ablation results (val/test)")}
     {img_if(abl_fig, "F1 — Baseline vs Ablated")}
   </div></div>
@@ -143,15 +146,11 @@ def build_html(project_id: str = PROJECT_ID_DEFAULT) -> str:
     </div></div></div>
   </div>
 
+  <div class="card"><div class="card-body">
+    <h2>Cross-Domain Results (global)</h2>
+    {json_table(cd_summary, "Train→Test matrix (F1/PR-AUC/ROC-AUC)", cols=None)}
+  </div></div>
+
   <footer class="text-muted mt-4"><small>Rendered live from GCS artifacts.</small></footer>
 </div></body></html>"""
     return html
-
-# Still allow running as a script locally (optional)
-if __name__ == "__main__":
-    html = build_html(PROJECT_ID_DEFAULT)
-    out = os.path.join(os.path.dirname(__file__), "site")
-    os.makedirs(out, exist_ok=True)
-    with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"✅ Wrote {os.path.join(out,'index.html')}")

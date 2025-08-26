@@ -1,23 +1,22 @@
+# src/feature_engineering.py
 import pandas as pd
-import numpy as np
-from config.config import TIME_COL
 
 def add_simple_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add lightweight features; skip any that don't exist in df."""
     out = df.copy()
-    # Ratio feature (guard division by zero)
-    out["amt_to_bal"] = np.where(out["AccountBalance"].abs() > 1e-9,
-                                 out["TransactionAmount"] / out["AccountBalance"], 0.0)
 
-    # Time-based features (hour, dayofweek)
-    dt = pd.to_datetime(out[TIME_COL], errors="coerce", utc=True)
-    out["txn_hour"] = dt.dt.hour
-    out["txn_dow"] = dt.dt.dayofweek
-    out["is_weekend"] = out["txn_dow"].isin([5, 6]).astype(int)
+    # Example ratio if both present
+    if "TransactionAmount" in out.columns and "AccountBalance" in out.columns:
+        out["amt_to_bal"] = out["TransactionAmount"] / (out["AccountBalance"].abs() + 1e-6)
 
-    # Basic sanitization for NA
-    numeric_cols = ["TransactionAmount","AccountBalance","CustomerAge","TransactionDuration","LoginAttempts","amt_to_bal","txn_hour","txn_dow","is_weekend"]
-    for c in numeric_cols:
-        if c in out.columns:
-            out[c] = out[c].fillna(0)
+    # Time since previous transaction per account (seconds)
+    if "PreviousTransactionDate" in out.columns and "TransactionDate" in out.columns:
+        delta = (out["TransactionDate"] - out["PreviousTransactionDate"]).dt.total_seconds()
+        out["secs_since_prev"] = delta.fillna(delta.median())
 
+    # Number of logins to attempts ratio
+    if "LoginAttempts" in out.columns:
+        out["logins_log1p"] = (out["LoginAttempts"]).fillna(0)
+
+    # Keep as-is otherwise; ULB V1..V28 will pass through to preprocessing
     return out

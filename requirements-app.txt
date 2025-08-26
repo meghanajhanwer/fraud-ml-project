@@ -1,0 +1,8 @@
+fastapi==0.111.*
+uvicorn[standard]==0.30.*
+google-cloud-storage==2.*
+google-cloud-aiplatform==1.*
+pandas==2.*
+numpy==1.26.*
+jinja2==3.*          # if you render HTML templates
+scikit-learn==1.5.*  # only if your /predict uses sklearn locally

@@ -1,0 +1,429 @@
+{
+  "best": {
+    "params": {
+      "n_estimators": 300,
+      "max_depth": 3,
+      "learning_rate": 0.05,
+      "subsample": 0.7,
+      "colsample_bytree": 0.7,
+      "reg_lambda": 1.0,
+      "random_state": 42,
+      "tree_method": "hist",
+      "n_jobs": 2,
+      "eval_metric": "aucpr"
+    },
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "trials": [
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.1,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.1,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.1,
+        "subsample": 0.9,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 3,
+        "learning_rate": 0.1,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 0.8846153846153846,
+      "recall": 1.0,
+      "f1": 0.9387755102040817
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.1,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.1,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.1,
+        "subsample": 0.9,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 0.8846153846153846,
+      "recall": 1.0,
+      "f1": 0.9387755102040817
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.1,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 0.8846153846153846,
+      "recall": 1.0,
+      "f1": 0.9387755102040817
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.1,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.1,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.1,
+        "subsample": 0.9,
+        "colsample_bytree": 0.7,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 0.8846153846153846,
+      "recall": 1.0,
+      "f1": 0.9387755102040817
+    },
+    {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 6,
+        "learning_rate": 0.1,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "reg_lambda": 1.0,
+        "random_state": 42,
+        "tree_method": "hist",
+        "n_jobs": 2,
+        "eval_metric": "aucpr"
+      },
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    }
+  ]
+}

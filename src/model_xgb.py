@@ -1,87 +1,95 @@
-from typing import Dict, Any, Tuple
-import tempfile, os, json
-from sklearn.metrics import (
-    roc_auc_score, average_precision_score, precision_recall_fscore_support, accuracy_score
-)
-from xgboost import XGBClassifier
+# src/model_xgb.py
+import os
+import json
+import tempfile
+import numpy as np
+from typing import Tuple, Dict, Any
+from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+                             f1_score, roc_auc_score, average_precision_score)
+import xgboost as xgb
 from google.cloud import storage
-from config.config import RANDOM_SEED, ARTIFACTS_GCS_PREFIX, PROJECT_ID
 
-def _load_best_params_if_any():
-    """Try to load tuned params from gs://.../artifacts/models/xgb/best_params.json."""
-    try:
-        bucket_name = ARTIFACTS_GCS_PREFIX.split("gs://",1)[1].split("/",1)[0]
-        prefix      = ARTIFACTS_GCS_PREFIX.split(bucket_name + "/", 1)[1]
-        blob = storage.Client(project=PROJECT_ID).bucket(bucket_name)\
-            .blob(f"{prefix}/models/xgb/best_params.json")
-        if blob.exists():
-            return json.loads(blob.download_as_text())
-    except Exception:
-        pass
-    return None
+from config.config import (
+    PROJECT_ID, BUCKET, ARTIFACTS_GCS_PREFIX, DATASET, XGB_LIGHT
+)
 
-def _upload_used_params(params: dict):
-    try:
-        bucket_name = ARTIFACTS_GCS_PREFIX.split("gs://",1)[1].split("/",1)[0]
-        prefix      = ARTIFACTS_GCS_PREFIX.split(bucket_name + "/", 1)[1]
-        storage.Client(project=PROJECT_ID).bucket(bucket_name)\
-            .blob(f"{prefix}/models/xgb/used_params.json")\
-            .upload_from_string(json.dumps(params, indent=2))
-    except Exception:
-        pass
+def _upload_bytes(data: bytes, gcs_path: str, content_type="application/octet-stream"):
+    assert gcs_path.startswith("gs://")
+    _, rest = gcs_path.split("gs://", 1)
+    bucket, blob = rest.split("/", 1)
+    client = storage.Client(project=PROJECT_ID)
+    b = client.bucket(bucket).blob(blob)
+    b.upload_from_string(data, content_type=content_type)
 
-def train_eval_xgb(X_train, y_train, X_val, y_val) -> Tuple[Dict[str, Any], Any]:
-    tuned = _load_best_params_if_any()
-    if tuned:
-        # Ensure critical safety defaults remain
-        base = dict(tree_method="hist", n_jobs=2, random_state=RANDOM_SEED, reg_lambda=1.0)
-        base.update(tuned)
-        params = base
-    else:
-        params = dict(
-            n_estimators=300, max_depth=6, learning_rate=0.05,
-            subsample=0.9, colsample_bytree=0.9, reg_lambda=1.0,
-            random_state=RANDOM_SEED, tree_method="hist", n_jobs=2,
-            eval_metric="aucpr",
-        )
+def _save_text(txt: str, rel: str):
+    _upload_bytes(txt.encode(), f"{ARTIFACTS_GCS_PREFIX}/{rel}", "text/plain")
 
-    model = XGBClassifier(**params)
-    # Early stopping when we have a validation set
-    try:
-        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False, early_stopping_rounds=30)
-    except Exception:
-        model.fit(X_train, y_train, verbose=False)
-
-    # Predictions + metrics
-    y_pred = model.predict(X_val)
-    try:
-        y_proba = model.predict_proba(X_val)[:, 1]
-    except Exception:
-        y_proba = None
-
-    pr, rc, f1, _ = precision_recall_fscore_support(y_val, y_pred, average="binary", zero_division=0)
-    acc = accuracy_score(y_val, y_pred)
-    metrics = {
+def _metrics_dict(y_true, y_pred, y_proba) -> Dict[str, Any]:
+    return {
         "model_type": "xgb",
-        "accuracy": float(acc),
-        "precision": float(pr),
-        "recall": float(rc),
-        "f1": float(f1),
-        "roc_auc": float(roc_auc_score(y_val, y_proba)) if y_proba is not None else 0.0,
-        "pr_auc": float(average_precision_score(y_val, y_proba)) if y_proba is not None else 0.0,
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+        "roc_auc": float(roc_auc_score(y_true, y_proba)) if len(np.unique(y_true)) > 1 else 0.0,
+        "pr_auc": float(average_precision_score(y_true, y_proba)) if len(np.unique(y_true)) > 1 else 0.0,
     }
 
-    # Save the Booster as model.bst under artifacts/models/xgb/
+def train_eval_xgb(X_tr, y_tr, X_va, y_va) -> Tuple[Dict[str, Any], xgb.XGBClassifier]:
+    # If upstream disabled SMOTE, set scale_pos_weight = #neg/#pos on the *training* fold.
+    pos = int(np.sum(y_tr == 1))
+    neg = int(np.sum(y_tr == 0))
+    spw = (neg / max(pos, 1)) if pos > 0 else 1.0
+
+    # Light defaults for free tier (hist grows fast & is memory friendly)
+    base_params = dict(
+        n_estimators=300 if not XGB_LIGHT else 200,
+        max_depth=6 if not XGB_LIGHT else 4,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        objective="binary:logistic",
+        eval_metric="aucpr",
+        tree_method="hist",
+        random_state=42,
+        n_jobs=0,
+    )
+
+    # If SMOTE was used upstream, classes are closer → scale_pos_weight ~1 is fine.
+    # We can detect by class ratio; if very imbalanced, apply spw.
+    ratio = spw  # reuse computed value
+    use_spw = ratio > 3.0  # simple heuristic
+    if use_spw:
+        base_params["scale_pos_weight"] = ratio
+
+    model = xgb.XGBClassifier(**base_params)
+
+    model.fit(
+        X_tr, y_tr,
+        eval_set=[(X_va, y_va)],
+        verbose=False
+    )
+
+    try:
+        proba = model.predict_proba(X_va)[:, 1]
+    except Exception:
+        proba = model.predict(X_va)
+        if proba.ndim > 1:
+            proba = proba[:, -1]
+    pred = (proba >= 0.5).astype(int)
+
+    metrics = _metrics_dict(y_va, pred, proba)
+
+    # Save booster as .bst for Vertex AI XGBoost container
     booster = model.get_booster()
     with tempfile.TemporaryDirectory() as td:
-        lp = os.path.join(td, "model.bst")
-        booster.save_model(lp)
-        bucket_name = ARTIFACTS_GCS_PREFIX.split("gs://",1)[1].split("/",1)[0]
-        prefix      = ARTIFACTS_GCS_PREFIX.split(bucket_name + "/", 1)[1]
-        storage.Client(project=PROJECT_ID).bucket(bucket_name)\
-            .blob(f"{prefix}/models/xgb/model.bst").upload_from_filename(lp)
+        local = os.path.join(td, "xgb_model.bst")
+        booster.save_model(local)
+        with open(local, "rb") as f:
+            _upload_bytes(f.read(), f"{ARTIFACTS_GCS_PREFIX}/models/xgb_model.bst", "application/octet-stream")
 
-    # Save the params actually used (for traceability)
-    _upload_used_params(params)
+    # Also drop a params JSON
+    _save_text(json.dumps({"params": base_params, "class_ratio": {"neg": neg, "pos": pos}}, indent=2),
+               "models/xgb_params.json")
 
     return metrics, model
