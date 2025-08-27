@@ -1,4 +1,3 @@
-# src/model_lstm.py
 from typing import Dict, Any, Tuple
 import os, tempfile, pathlib
 import numpy as np
@@ -6,12 +5,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score, average_precision_score, precision_recall_fscore_support
 from sklearn.preprocessing import StandardScaler
 from google.cloud import storage
-
-from config.config import (
-    RANDOM_SEED, ARTIFACTS_GCS_PREFIX, PROJECT_ID,
-    TARGET_COL, SEQUENCE_LENGTH
-)
-
+from config.config import RANDOM_SEED, ARTIFACTS_GCS_PREFIX, PROJECT_ID,TARGET_COL, SEQUENCE_LENGTH
 import tensorflow as tf
 from tensorflow import keras
 
@@ -31,7 +25,6 @@ def _upload_dir_to_gcs(local_dir: str, gcs_uri: str):
             blob.upload_from_filename(lp)
 
 def _build_sequences(df: pd.DataFrame, feature_cols):
-    # df must have AccountID, TransactionDate, TARGET_COL and feature_cols
     df = df.sort_values(["AccountID", "TransactionDate"]).reset_index(drop=True)
     Xs, ys = [], []
     for _, grp in df.groupby("AccountID"):
@@ -66,7 +59,6 @@ def train_eval_lstm(
     acc_val: pd.Series,        t_val: pd.Series
 ) -> Tuple[Dict[str, Any], Any]:
 
-    # Build DataFrames with required columns
     df_tr = X_train_num.copy()
     df_tr[TARGET_COL] = y_train.values
     df_tr["AccountID"] = acc_train.values
@@ -77,7 +69,6 @@ def train_eval_lstm(
     df_va["AccountID"] = acc_val.values
     df_va["TransactionDate"] = pd.to_datetime(t_val.values)
 
-    # Scale numeric features
     feature_cols = X_train_num.columns.tolist()
     scaler = StandardScaler()
     Xtr_scaled = pd.DataFrame(scaler.fit_transform(X_train_num), columns=feature_cols, index=X_train_num.index)
@@ -86,12 +77,10 @@ def train_eval_lstm(
     df_tr[feature_cols] = Xtr_scaled
     df_va[feature_cols] = Xva_scaled
 
-    # Build sequences
     Xtr_seq, ytr_seq = _build_sequences(df_tr[["AccountID","TransactionDate",TARGET_COL]+feature_cols], feature_cols)
     Xva_seq, yva_seq = _build_sequences(df_va[["AccountID","TransactionDate",TARGET_COL]+feature_cols], feature_cols)
 
     if Xtr_seq is None or Xva_seq is None:
-        # Not enough sequences – return zeros and don't export
         return {"model_type":"lstm","precision":0,"recall":0,"f1":0,"roc_auc":0,"pr_auc":0}, None
 
     input_shape = (Xtr_seq.shape[1], Xtr_seq.shape[2])
@@ -99,8 +88,6 @@ def train_eval_lstm(
 
     es = keras.callbacks.EarlyStopping(monitor="val_loss", patience=2, restore_best_weights=True)
     model.fit(Xtr_seq, ytr_seq, validation_data=(Xva_seq, yva_seq), epochs=8, batch_size=64, callbacks=[es], verbose=0)
-
-    # Evaluate
     y_proba = model.predict(Xva_seq, verbose=0).ravel()
     y_pred = (y_proba >= 0.5).astype(int)
 
@@ -113,14 +100,10 @@ def train_eval_lstm(
         "roc_auc": float(roc_auc_score(yva_seq, y_proba)) if len(np.unique(yva_seq)) > 1 else 0.0,
         "pr_auc": float(average_precision_score(yva_seq, y_proba)) if len(np.unique(yva_seq)) > 1 else 0.0,
     }
-
-    # Export SavedModel and upload to GCS
     export_uri = f"{ARTIFACTS_GCS_PREFIX}/models/lstm_savedmodel"
     with tempfile.TemporaryDirectory() as td:
         local_dir = os.path.join(td, "saved_model")
-        # Keras SavedModel
-        model.save(local_dir)  # creates saved_model.pb + variables/*
-        # Upload directory recursively
+        model.save(local_dir)
         _upload_dir_to_gcs(local_dir, export_uri)
 
     return metrics, model

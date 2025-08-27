@@ -1,0 +1,9 @@
+# Keep this minimal; do NOT ignore *.py
+# (Cloud Functions uses this file to decide what to upload)
+# Examples you may ignore safely:
+__pycache__/
+*.pyc
+*.pyo
+*.DS_Store
+.env
+.venv/

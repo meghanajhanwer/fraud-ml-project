@@ -2,15 +2,10 @@ import json
 from xgboost import XGBClassifier
 from sklearn.metrics import precision_recall_fscore_support
 from google.cloud import storage
-
-from config.config import (
-    PROJECT_ID, ARTIFACTS_GCS_PREFIX, RANDOM_SEED,
-    TARGET_COL, ID_COL, TIME_COL
-)
+from config.config import PROJECT_ID, ARTIFACTS_GCS_PREFIX, RANDOM_SEED,TARGET_COL, ID_COL, TIME_COL
 from src.data_extraction import load_curated
 from src.feature_engineering import add_simple_features
 from src.preprocessing import split_data, build_tabular_transformer, smote_fit_resample
-
 def _upload_json(obj, gcs_path):
     assert gcs_path.startswith("gs://")
     bucket_name = gcs_path.split("gs://",1)[1].split("/",1)[0]
@@ -19,7 +14,6 @@ def _upload_json(obj, gcs_path):
         .upload_from_string(json.dumps(obj, indent=2))
 
 def main():
-    # Prepare data (same as pipeline)
     df = load_curated().sort_values(["AccountID", TIME_COL]).reset_index(drop=True)
     df = add_simple_features(df)
     df_train, df_val, *_ = split_data(df)
@@ -32,11 +26,7 @@ def main():
     X_val   = preproc.transform(df_val[tabular_cols])
     y_train = df_train[TARGET_COL]
     y_val   = df_val[TARGET_COL]
-
-    # SMOTE only on train
     X_train_bal, y_train_bal = smote_fit_resample(X_train, y_train)
-
-    # Light grid (kept small for free tier)
     grid = {
         "max_depth":        [3, 5, 6],
         "learning_rate":    [0.05, 0.1],
@@ -76,11 +66,9 @@ def main():
                     trials.append(trial)
                     if best is None or trial["f1"] > best["f1"]:
                         best = trial
-
-    # Save search results + best to GCS
     _upload_json({"best": best, "trials": trials}, f"{ARTIFACTS_GCS_PREFIX}/metrics/xgb_tuning_results.json")
     _upload_json(best["params"], f"{ARTIFACTS_GCS_PREFIX}/models/xgb/best_params.json")
-    print("✅ XGB tuning complete. Best params saved to models/xgb/best_params.json")
+    print("XGB tuning complete, Best params saved")
     print("Best:", best)
 
 if __name__ == "__main__":

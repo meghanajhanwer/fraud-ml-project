@@ -1,18 +1,14 @@
 import io
-import streamlit as st; st.write("✅ Dashboard loaded")
+import streamlit as st; st.write("Dashboard loaded")
 import json
 from typing import Optional, List
-
 import pandas as pd
 import streamlit as st
 from google.cloud import storage
 
-# ---- Hardcoded config (matches your project) ----
 PROJECT_ID = "resonant-idea-467410-u9"
 BUCKET = "resonant-idea-467410-u9-gcs-to-bq"
 ARTIFACTS_PREFIX = "artifacts"
-
-# GCS helpers
 def _client():
     return storage.Client(project=PROJECT_ID)
 
@@ -76,12 +72,10 @@ def show_table_if_exists(title: str, uri: str, is_json=False):
             st.info(f"Not found or empty: `{uri}`")
         return df
 
-# ---- UI ----
 st.set_page_config(page_title="Fraud ML Dashboard", layout="wide")
-st.title("📊 Fraud Detection Dashboard")
+st.title("Fraud Detection Dashboard")
 st.caption(f"Project: **{PROJECT_ID}** — Artifacts from **gs://{BUCKET}/{ARTIFACTS_PREFIX}**")
 
-# Overview / Metrics
 st.header("Model Metrics & Leader")
 metrics_uri = f"gs://{BUCKET}/{ARTIFACTS_PREFIX}/metrics/metrics.json"
 metrics = show_table_if_exists("Raw Metrics JSON", metrics_uri, is_json=True)
@@ -89,7 +83,6 @@ metrics = show_table_if_exists("Raw Metrics JSON", metrics_uri, is_json=True)
 show_image_if_exists("F1 Comparison", f"gs://{BUCKET}/{ARTIFACTS_PREFIX}/metrics/f1_comparison.png", width=600)
 
 if isinstance(metrics, dict):
-    # Flatten to a table
     import itertools
     rows = []
     for model_type, vals in metrics.items():
@@ -100,14 +93,11 @@ if isinstance(metrics, dict):
         dfm = pd.DataFrame(rows)
         st.subheader("Metrics Table")
         st.dataframe(dfm)
-
-        # Best by F1
         best_row = dfm.sort_values("f1", ascending=False).head(1)
         if not best_row.empty:
             best = best_row.iloc[0]["model_type"]
-            st.success(f"🏆 Best model by F1: **{best}**")
+            st.success(f"Best model by F1: **{best}**")
 
-# EDA
 st.header("EDA")
 show_image_if_exists("Class Balance", f"gs://{BUCKET}/{ARTIFACTS_PREFIX}/eda/class_balance.png", width=500)
 show_table_if_exists("Head (first rows)", f"gs://{BUCKET}/{ARTIFACTS_PREFIX}/eda/head.csv")
@@ -117,7 +107,6 @@ with col1:
 with col2:
     show_table_if_exists("Describe (categorical)", f"gs://{BUCKET}/{ARTIFACTS_PREFIX}/eda/describe_categorical.csv")
 
-# Plots
 st.header("Evaluation Plots")
 plots = [
     ("Confusion (XGB)", f"gs://{BUCKET}/{ARTIFACTS_PREFIX}/plots/confusion_xgb.png"),
@@ -130,4 +119,4 @@ plots = [
 for title, uri in plots:
     show_image_if_exists(title, uri, width=700)
 
-st.caption("Tip: if a plot/table is missing, re-run the training pipeline to regenerate artifacts.")
+st.caption("If a plot/table is missing, re-run the training pipeline to regenerate artifacts.")

@@ -1,11 +1,6 @@
 import json
 from google.cloud import aiplatform, storage
-from config.config import (
-    PROJECT_ID, REGION, ARTIFACTS_GCS_PREFIX,
-    XGB_DISPLAY_NAME, LSTM_DISPLAY_NAME, NLP_DISPLAY_NAME,
-    ENDPOINT_DISPLAY_NAME, ENDPOINT_MACHINE_TYPE,
-    SKLEARN_IMAGE_URI, XGBOOST_IMAGE_URI, TENSORFLOW_IMAGE_URI
-)
+from config.config import PROJECT_ID, REGION, ARTIFACTS_GCS_PREFIX,XGB_DISPLAY_NAME, LSTM_DISPLAY_NAME, NLP_DISPLAY_NAME,ENDPOINT_DISPLAY_NAME, ENDPOINT_MACHINE_TYPE,SKLEARN_IMAGE_URI, XGBOOST_IMAGE_URI, TENSORFLOW_IMAGE_URI
 
 def _read_best_model_type() -> str:
     client = storage.Client(project=PROJECT_ID)
@@ -14,7 +9,7 @@ def _read_best_model_type() -> str:
     blob = client.bucket(bucket_name).blob(f"{prefix}/metrics/metrics.json")
     data = json.loads(blob.download_as_text())
     best = max(data.items(), key=lambda kv: kv[1].get("f1", 0))[0]
-    return best  # "xgb" | "nlp" | ("lstm" if you ever add it)
+    return best
 
 def _artifact_dir_and_container(model_type: str):
     if model_type == "xgb":
@@ -42,4 +37,4 @@ def register_and_deploy_best():
     print(f"Endpoint: {endpoint.resource_name}")
 
     endpoint.deploy(model=model, machine_type=ENDPOINT_MACHINE_TYPE, traffic_percentage=100, sync=False)
-    print("Deployment started (non-blocking).")
+    print("Deployment started")

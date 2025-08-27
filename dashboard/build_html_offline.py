@@ -67,7 +67,7 @@ def build_html_local(project_label="OFFLINE"):
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>body{{padding:20px}} img{{max-width:100%;height:auto}} .card{{margin-bottom:20px}} .table{{font-size:12px}} .card-body{{overflow:auto}}</style>
 </head><body><div class="container-fluid">
-  <h1 class="mb-3">📊 Fraud Detection Dashboard (Offline)</h1>
+  <h1 class="mb-3">Fraud Detection Dashboard (Offline)</h1>
   <p class="text-muted">Artifacts: <code>offline_artifacts/</code> — Mode: <b>{project_label}</b></p>
 
   <div class="card"><div class="card-body">

@@ -1,4 +1,3 @@
-# scripts/prepare_ulb_to_gcs.py
 import os
 from google.cloud import storage
 from config.config import PROJECT_ID, ULB_CSV_LOCAL, ULB_GCS_PATH
@@ -14,7 +13,7 @@ def main():
     client = storage.Client(project=PROJECT_ID)
     blob = client.bucket(bucket).blob(blob_name)
     blob.upload_from_filename(ULB_CSV_LOCAL)
-    print(f"✅ Uploaded {ULB_CSV_LOCAL} → {ULB_GCS_PATH}")
+    print(f"Uploaded {ULB_CSV_LOCAL} → {ULB_GCS_PATH}")
 
 if __name__ == "__main__":
     main()

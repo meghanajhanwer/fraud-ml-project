@@ -1,17 +1,16 @@
 from typing import Tuple
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
+from sklearn.model_selection import train_test_split, GroupShuffleSplit
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from imblearn.over_sampling import SMOTE
-from config.config import TARGET_COL, RANDOM_SEED, TEST_SIZE, VAL_SIZE
+from config.config import TARGET_COL, RANDOM_SEED, TEST_SIZE, VAL_SIZE,TIME_COL, ID_COL
 
 def split_data(df: pd.DataFrame):
-    # Primary split: test
     df_trainval, df_test = train_test_split(
         df, test_size=TEST_SIZE, stratify=df[TARGET_COL], random_state=RANDOM_SEED
     )
-    # Secondary split: val
     val_ratio = VAL_SIZE / (1 - TEST_SIZE)
     df_train, df_val = train_test_split(
         df_trainval, test_size=val_ratio, stratify=df_trainval[TARGET_COL], random_state=RANDOM_SEED
@@ -26,7 +25,6 @@ def build_tabular_transformer(df: pd.DataFrame, drop_cols=None) -> Tuple[ColumnT
     preproc = ColumnTransformer(
         transformers=[
             ("num", StandardScaler(), numeric_cols),
-            # sklearn >=1.4 uses sparse_output instead of sparse
             ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), categorical_cols),
         ],
         remainder="drop"
@@ -34,7 +32,6 @@ def build_tabular_transformer(df: pd.DataFrame, drop_cols=None) -> Tuple[ColumnT
     return preproc, numeric_cols + categorical_cols
 
 def smote_fit_resample(X, y):
-    # SMOTE only on training set (avoid leakage); expects dense
     try:
         import scipy.sparse as sp
         if sp.issparse(X):
@@ -45,11 +42,6 @@ def smote_fit_resample(X, y):
     X_res, y_res = sm.fit_resample(X, y)
     return X_res, y_res
 
-# --- SPLIT STRATEGIES (add below your existing imports and functions) ---
-from sklearn.model_selection import GroupShuffleSplit
-import numpy as np
-import pandas as pd
-from config.config import TIME_COL, ID_COL, RANDOM_SEED
 
 def split_data_group_by_account(df: pd.DataFrame, val_size=0.15, test_size=0.15, random_state=RANDOM_SEED):
     """Split so that no AccountID appears in more than one split."""
@@ -59,8 +51,6 @@ def split_data_group_by_account(df: pd.DataFrame, val_size=0.15, test_size=0.15,
     train_val_idx, test_idx = next(gss.split(idx, groups=groups))
     df_train_val = df.iloc[train_val_idx].copy()
     df_test      = df.iloc[test_idx].copy()
-
-    # split train vs val on remaining groups
     groups_tv = df_train_val["AccountID"].astype(str).values
     gss2 = GroupShuffleSplit(n_splits=1, test_size=val_size/(1.0-test_size), random_state=random_state)
     tr_idx, va_idx = next(gss2.split(np.arange(len(df_train_val)), groups=groups_tv))

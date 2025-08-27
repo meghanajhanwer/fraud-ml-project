@@ -14,7 +14,7 @@ bq = bigquery.Client()
 def load_csv_to_bq(uri: str, table_id: str) -> int:
     job_cfg = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.CSV,
-        autodetect=False,                 # using schema in table definition
+        autodetect=False,
         skip_leading_rows=SKIP_ROWS,
         field_delimiter=DELIMITER,
         quote_character='"',
@@ -25,7 +25,6 @@ def load_csv_to_bq(uri: str, table_id: str) -> int:
     job.result()
     return job.output_rows or 0
 
-# Triggered by Eventarc on GCS object "finalized"
 def gcs_to_bq(event, context):
     bucket = event.get("bucket")
     name   = event.get("name")
@@ -35,7 +34,6 @@ def gcs_to_bq(event, context):
         print("Missing bucket/name in event; ignoring.")
         return
 
-    # Only process our prefix and CSVs
     if FILE_PREFIX and not name.startswith(FILE_PREFIX):
         print(f"Skip (prefix): {name}")
         return

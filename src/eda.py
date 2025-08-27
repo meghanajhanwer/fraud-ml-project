@@ -27,7 +27,6 @@ def save_class_balance_plot(df: pd.DataFrame, target_col: str, title: str = "Cla
     _gcs_upload_bytes(buf.read(), f"{ARTIFACTS_GCS_PREFIX}/eda/class_balance.png")
 
 def profile_basic(df: pd.DataFrame, n_head: int = 5):
-    # Save simple head and separate numeric/categorical describes
     _gcs_upload_bytes(df.head(n_head).to_csv(index=False).encode(),
                       f"{ARTIFACTS_GCS_PREFIX}/eda/head.csv")
 

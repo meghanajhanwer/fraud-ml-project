@@ -3,9 +3,7 @@ import io, joblib, tempfile, os
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    precision_recall_fscore_support, roc_auc_score, average_precision_score, accuracy_score
-)
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, average_precision_score, accuracy_score
 from google.cloud import storage
 from config.config import PROJECT_ID, ARTIFACTS_GCS_PREFIX, RANDOM_SEED
 
@@ -33,8 +31,6 @@ def train_eval_nlp(train_text, y_train, val_text, y_val) -> Tuple[Dict[str, any]
         "roc_auc": float(roc_auc_score(y_val, y_proba)) if y_proba is not None else 0.0,
         "pr_auc": float(average_precision_score(y_val, y_proba)) if y_proba is not None else 0.0,
     }
-
-    # Save model to GCS: gs://.../artifacts/models/nlp/model.joblib
     with tempfile.TemporaryDirectory() as td:
         lp = os.path.join(td, "model.joblib")
         joblib.dump(pipe, lp)
