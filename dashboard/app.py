@@ -6,12 +6,11 @@ import pandas as pd
 import streamlit as st
 from google.cloud import storage
 
-PROJECT_ID = "resonant-idea-467410-u9"
-BUCKET = "resonant-idea-467410-u9-gcs-to-bq"
+PROJECT_ID = "mythic-producer-471010-k0"
+BUCKET = "mythic-producer-471010-k0-gcs-to-bq"
 ARTIFACTS_PREFIX = "artifacts"
 def _client():
     return storage.Client(project=PROJECT_ID)
-
 def gcs_text(uri: str) -> Optional[str]:
     try:
         assert uri.startswith("gs://")

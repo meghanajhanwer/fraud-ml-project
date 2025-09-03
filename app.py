@@ -1,8 +1,8 @@
 import json, io, tempfile
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Tuple, Iterable
 import numpy as np
 import pandas as pd
-import xgboost as xgb
+import pandas.api.types as pdt
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,17 +12,27 @@ from google.cloud import aiplatform
 from config.config import PROJECT_ID, REGION, ENDPOINT_DISPLAY_NAME, ARTIFACTS_GCS_BASE
 from dashboard.build_static_dashboard import build_html
 from src.feature_engineering import add_simple_features
+try:
+    from sklearn.pipeline import Pipeline
+    from sklearn.impute import SimpleImputer
+    from sklearn.preprocessing import OneHotEncoder
+    from sklearn.compose import ColumnTransformer
+except Exception:
+    Pipeline = SimpleImputer = OneHotEncoder = ColumnTransformer = object
 
 app = FastAPI(title="Fraud Detection Dashboard")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 PRIMARY_PREFIX     = f"{ARTIFACTS_GCS_BASE}/datasets/primary"
 PREPROC_JOBLIB_URI = f"{PRIMARY_PREFIX}/preproc/preprocessor.joblib"
-FEATURE_NAMES_URI  = f"{PRIMARY_PREFIX}/preproc/feature_names.json"
+FEATURE_NAMES_URI  = f"{PRIMARY_PREFIX}/preproc/feature_names.json" 
 COLUMNS_IN_URI     = f"{PRIMARY_PREFIX}/preproc/columns_in.json"
-XGB_BST_URI        = f"{PRIMARY_PREFIX}/models/xgb_model.bst"
 THRESHOLDS_URI     = f"{PRIMARY_PREFIX}/metrics/thresholds.json"
 SCHEMA_VERSION     = "primary-v1"
+NUMERIC_COLS_HINT  = ["TransactionAmount","CustomerAge","TransactionDuration","LoginAttempts","AccountBalance"]
+DATETIME_COLS_HINT = ["TransactionDate","PreviousTransactionDate"]
+TEXT_COLS_HINT     = ["TransactionType","Location","DeviceID","IP_Address","MerchantID","Channel",
+                      "CustomerOccupation","nlp_text","TransactionID","AccountID"]
 
 def _storage():
     return storage.Client(project=PROJECT_ID)
@@ -54,30 +64,13 @@ def _load_joblib_from_gcs(uri: str):
             tf.write(raw); tf.flush()
             return joblib.load(tf.name)
 
-def _load_booster_from_gcs(uri: str) -> xgb.Booster:
-    data = _gcs_read_bytes(uri)
-    if not data:
-        raise HTTPException(status_code=503, detail=f"Model file not found at {uri}. Re-run training.")
-    bst = xgb.Booster()
-    try:
-        bst.load_model(bytearray(data))
-    except Exception:
-        with tempfile.NamedTemporaryFile(suffix=".bst") as tf:
-            tf.write(data); tf.flush()
-            bst.load_model(tf.name)
-    return bst
-
 _cache: Dict[str, Any] = {}
 
 def _ensure_artifacts_loaded():
     if "preproc" not in _cache:
         _cache["preproc"] = _load_joblib_from_gcs(PREPROC_JOBLIB_URI)
-    if "feature_names" not in _cache:
-        txt = _gcs_read_text(FEATURE_NAMES_URI); _cache["feature_names"] = json.loads(txt) if txt else []
     if "columns_in" not in _cache:
         txt = _gcs_read_text(COLUMNS_IN_URI); _cache["columns_in"] = json.loads(txt) if txt else None
-    if "booster" not in _cache:
-        _cache["booster"] = _load_booster_from_gcs(XGB_BST_URI)
     if "threshold" not in _cache:
         txt = _gcs_read_text(THRESHOLDS_URI); thr = 0.5
         if txt:
@@ -126,33 +119,106 @@ class PredictRawResponse(BaseModel):
     decision: int
     reasons: List[Dict[str, Any]] = Field(default_factory=list)
     schema_version: str
+def _safe_list(cols: Any) -> List[str]:
+    if cols is None:
+        return []
+    if isinstance(cols, (list, tuple, np.ndarray, pd.Index)):
+        return [str(c) for c in list(cols)]
+    try:
+        return [str(c) for c in list(cols)]
+    except Exception:
+        return []
+
+def _expected_schema_from_preproc(preproc) -> Tuple[List[str], List[str], List[str]]:
+    num_cols: List[str] = []
+    cat_cols: List[str] = []
+    other_cols: List[str] = []
+    try:
+        if hasattr(preproc, "transformers_"):
+            for name, trans, cols in preproc.transformers_:
+                cols_list = _safe_list(cols)
+                if trans in (None, "drop"):
+                    continue
+                steps = getattr(trans, "steps", None)
+                def has_instance(t, cls):
+                    if isinstance(t, cls): return True
+                    if steps: return any(isinstance(est, cls) for _, est in steps)
+                    return False
+                if has_instance(trans, OneHotEncoder):
+                    cat_cols += cols_list; continue
+                simp = None
+                if isinstance(trans, SimpleImputer): simp = trans
+                elif steps:
+                    for _, est in steps:
+                        if isinstance(est, SimpleImputer): simp = est; break
+                if simp is not None:
+                    strat = getattr(simp, "strategy", None)
+                    if strat in ("mean", "median"): num_cols += cols_list; continue
+                    elif strat in ("most_frequent", "constant"): cat_cols += cols_list; continue
+                lname = (name or "").lower()
+                if   lname.startswith("num"): num_cols += cols_list
+                elif lname.startswith("cat"): cat_cols += cols_list
+                else:                         other_cols += cols_list
+        else:
+            num_cols, cat_cols = NUMERIC_COLS_HINT[:], TEXT_COLS_HINT[:]
+    except Exception:
+        num_cols, cat_cols = NUMERIC_COLS_HINT[:], TEXT_COLS_HINT[:]
+    seen=set(); num_cols=[c for c in num_cols if not (c in seen or seen.add(c))]
+    seen=set(); cat_cols=[c for c in cat_cols if not (c in seen or seen.add(c))]
+    seen=set(); other_cols=[c for c in other_cols if not (c in seen or seen.add(c))]
+    return num_cols, cat_cols, other_cols
 
 def _df_from_raw(raw: RawTxn) -> pd.DataFrame:
-    data = raw.dict()
-    for col in ("TransactionDate", "PreviousTransactionDate"):
-        if data.get(col):
-            try: data[col] = pd.to_datetime(data[col])
-            except Exception: data[col] = pd.NaT
-        else:
-            data[col] = pd.NaT
-    data["TransactionAmount"] = float(data.get("TransactionAmount") or 0.0)
-    data["LoginAttempts"] = int(data.get("LoginAttempts") or 0)
-    return pd.DataFrame([data])
+    df = pd.DataFrame([raw.dict()])
+    for c in DATETIME_COLS_HINT:
+        if c in df.columns:
+            df[c] = pd.to_datetime(df[c], errors="coerce", utc=True)
+    for c in NUMERIC_COLS_HINT:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    for c in TEXT_COLS_HINT:
+        if c in df.columns and df[c].dtype == object:
+            df[c] = df[c].astype(str).str.strip()
+    return df
 
+def _coerce_input_frame(df: pd.DataFrame, num_cols: List[str], cat_cols: List[str]) -> pd.DataFrame:
+    for c in df.columns:
+        if c in num_cols and (pdt.is_datetime64_any_dtype(df[c]) or "date" in c.lower() or "time" in c.lower()):
+            s = pd.to_datetime(df[c], errors="coerce", utc=True)
+            s_ns = s.view("int64").astype("float64")
+            s_ns = s_ns.where(s.notna(), np.nan)
+            df[c] = s_ns / 1e9
+    for c in num_cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    for c in cat_cols:
+        if c in df.columns:
+            df[c] = df[c].astype("string").astype(object)
+            df[c] = df[c].astype(str).str.strip()
+    for c in df.columns:
+        if c not in num_cols and c not in cat_cols and df[c].dtype == object:
+            coerced = pd.to_numeric(df[c], errors="coerce")
+            if coerced.notna().any(): df[c] = coerced
+            else: df[c] = df[c].astype(str).str.strip()
+    return df
 def _transform_to_vector(df_raw: pd.DataFrame):
     _ensure_artifacts_loaded()
     preproc = _cache["preproc"]
     columns_in = _cache["columns_in"]
+
     df_fe = add_simple_features(df_raw.copy())
-    if columns_in is None:
-        try:
-            columns_in = preproc.feature_names_in_.tolist()
-        except Exception:
-            raise HTTPException(status_code=500, detail="Preprocessor missing feature_names_in_.")
-    for c in columns_in:
+
+    num_expected, cat_expected, other_expected = _expected_schema_from_preproc(preproc)
+    expected_all = (columns_in or [])
+    if not expected_all:
+        expected_all = list({*num_expected, *cat_expected, *other_expected})
+    for c in expected_all:
         if c not in df_fe.columns:
             df_fe[c] = np.nan
-    X = preproc.transform(df_fe[columns_in])
+    df_in = _coerce_input_frame(df_fe.copy(), num_expected, cat_expected)
+    if expected_all:
+        df_in = df_in[expected_all]
+    X = preproc.transform(df_in)
     try:
         from scipy import sparse as sp
         if sp.issparse(X):
@@ -160,40 +226,12 @@ def _transform_to_vector(df_raw: pd.DataFrame):
     except Exception:
         pass
     return np.asarray(X, dtype=np.float32, order="C")
-
-def _topk_reasons(X, k=6):
-    """Compute per-feature contributions using the local XGBoost booster.
-       Always cast to numeric float32 to avoid unicode/object issues."""
-    _ensure_artifacts_loaded()
-    bst = _cache["booster"]
-    featnames = _cache.get("feature_names") or []
-    try:
-        from scipy import sparse as sp
-    except Exception:
-        sp = None
-    if sp and sp.issparse(X):
-        Xn = X.astype(np.float32, copy=False).tocsr()
-        dmx = xgb.DMatrix(Xn)
-        nfeat = Xn.shape[1]
-    else:
-        arr = np.array(X, dtype=np.float32, copy=False)
-        if arr.ndim == 1:
-            arr = arr.reshape(1, -1)
-        dmx = xgb.DMatrix(arr)
-        nfeat = arr.shape[1]
-
-    contrib = bst.predict(dmx, pred_contribs=True, validate_features=False)[0]
-    if len(contrib) == nfeat + 1:
-        contrib = contrib[:-1]
-    contrib = np.asarray(contrib, dtype=float)
-    names = featnames if len(featnames) == nfeat else [f"f{i}" for i in range(nfeat)]
-    order = np.argsort(-np.abs(contrib))[:k]
-    return [
-        {"feature": names[i], "contribution": float(contrib[i]), "sign": ("+" if contrib[i] >= 0 else "-")}
-        for i in order
-    ]
-
-
+def _to_vertex_instance(x_row) -> List[float]:
+    arr = np.asarray(x_row, dtype=np.float64)
+    arr = np.nan_to_num(arr, nan=0.0,
+                        posinf=np.finfo(np.float64).max / 2,
+                        neginf=-np.finfo(np.float64).max / 2)
+    return [float(v) for v in arr.tolist()]
 def _get_endpoint():
     _ensure_artifacts_loaded()
     return _cache["endpoint"]
@@ -203,19 +241,18 @@ def predict_raw(raw: RawTxn):
     _ensure_artifacts_loaded()
     df = _df_from_raw(raw)
     X = _transform_to_vector(df)
+    vec_raw = (X.toarray()[0] if hasattr(X, "toarray") else np.asarray(X)[0])
+    vec = _to_vertex_instance(vec_raw)
     ep = _get_endpoint()
-    vec = (X.toarray()[0] if hasattr(X, "toarray") else np.asarray(X)[0]).tolist()
-    vec = [float(v) for v in vec]
     pred = ep.predict(instances=[vec])
-    if not pred or not pred.predictions:
+    if not pred or not getattr(pred, "predictions", None):
         raise HTTPException(status_code=502, detail="No prediction returned from endpoint.")
     score = float(pred.predictions[0])
     threshold = float(_cache["threshold"])
     decision = int(score >= threshold)
-    reasons = _topk_reasons(X, k=6)
-    return PredictRawResponse(score=score, threshold_used=threshold, decision=decision,
-                              reasons=reasons, schema_version=SCHEMA_VERSION)
 
+    return PredictRawResponse(score=score, threshold_used=threshold, decision=decision,
+                              reasons=[], schema_version=SCHEMA_VERSION)
 def _render_form_page(result: Dict[str, Any] | None = None, err: str | None = None) -> HTMLResponse:
     preset = {
         "TransactionAmount": "249.99",
@@ -287,18 +324,18 @@ async def form_submit(request: Request):
         raw = RawTxn(**payload)
         df = _df_from_raw(raw)
         X = _transform_to_vector(df)
+        vec_raw = (X.toarray()[0] if hasattr(X, "toarray") else np.asarray(X)[0])
+        vec = _to_vertex_instance(vec_raw)
         ep = _get_endpoint()
-        vec = (X.toarray()[0] if hasattr(X, "toarray") else np.asarray(X)[0]).tolist()
-        vec = [float(v) for v in vec]
         pred = ep.predict(instances=[vec])
-        if not pred or not pred.predictions:
+        if not pred or not getattr(pred, "predictions", None):
             raise RuntimeError("No prediction returned from endpoint.")
         score = float(pred.predictions[0])
         threshold = float(_cache["threshold"])
         decision = int(score >= threshold)
-        reasons = _topk_reasons(X, k=6)
+
         result = {"score": score, "threshold": threshold, "decision": decision,
-                  "reasons": reasons, "schema": SCHEMA_VERSION, "input": payload}
+                  "reasons": [], "schema": SCHEMA_VERSION, "input": payload}
         return _render_form_page(result=result)
     except Exception as e:
         return _render_form_page(err=str(e))

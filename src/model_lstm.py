@@ -37,7 +37,7 @@ def _build_sequences(df: pd.DataFrame, feature_cols):
             ys.append(labels[i])
     if not Xs:
         return None, None
-    X = np.stack(Xs, axis=0)  # [N, L, D]
+    X = np.stack(Xs, axis=0)
     y = np.array(ys).astype(np.int32)
     return X, y
 

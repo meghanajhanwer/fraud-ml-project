@@ -113,3 +113,4 @@ def build_html_local(project_label="OFFLINE"):
   <footer class="text-muted mt-4"><small>Rendered from local artifacts.</small></footer>
 </div></body></html>"""
     return html
+    

@@ -31,7 +31,7 @@ def gcs_to_bq(event, context):
     gen    = event.get("generation")
 
     if not bucket or not name:
-        print("Missing bucket/name in event; ignoring.")
+        print("Missing bucket/name in event")
         return
 
     if FILE_PREFIX and not name.startswith(FILE_PREFIX):

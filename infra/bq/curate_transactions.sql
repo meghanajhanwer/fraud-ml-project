@@ -1,6 +1,5 @@
-CREATE SCHEMA IF NOT EXISTS `resonant-idea-467410-u9.curated`;
-
-CREATE OR REPLACE TABLE `resonant-idea-467410-u9.curated.bank_transactions_modelready`
+CREATE SCHEMA IF NOT EXISTS `mythic-producer-471010-k0.curated`;
+CREATE OR REPLACE TABLE `mythic-producer-471010-k0.curated.bank_transactions_modelready`
 PARTITION BY DATE(TransactionDate)
 CLUSTER BY AccountID
 AS
@@ -26,9 +25,9 @@ WITH base AS (
     CAST(PreviousTransactionDate AS TIMESTAMP) AS PreviousTransactionDate,
     SAFE_DIVIDE(CAST(TransactionAmount AS FLOAT64), NULLIF(CAST(AccountBalance AS FLOAT64), 0)) AS amt_to_bal,
     EXTRACT(HOUR FROM CAST(TransactionDate AS TIMESTAMP)) AS txn_hour,
-    EXTRACT(DAYOFWEEK FROM CAST(TransactionDate AS TIMESTAMP)) - 1 AS txn_dow, 
+    EXTRACT(DAYOFWEEK FROM CAST(TransactionDate AS TIMESTAMP)) - 1 AS txn_dow,
     TIMESTAMP_DIFF(CAST(TransactionDate AS TIMESTAMP), CAST(PreviousTransactionDate AS TIMESTAMP), MINUTE) AS minutes_since_prev
-  FROM `resonant-idea-467410-u9.ingestion.bank_transactions_raw`
+  FROM `mythic-producer-471010-k0.ingestion.bank_transactions_raw`
 ),
 stats AS (
   SELECT

@@ -1,12 +1,12 @@
 import os, os.path
-PROJECT_ID = "resonant-idea-467410-u9"
+PROJECT_ID = "mythic-producer-471010-k0"
 REGION = "us-central1"
 BQ_LOCATION = "us-central1"
 RAW_DATASET = "ingestion"
 RAW_TABLE = "bank_transactions_raw"
 CURATED_DATASET = "curated"
 CURATED_TABLE = "bank_transactions_modelready"
-BUCKET = "resonant-idea-467410-u9-gcs-to-bq"
+BUCKET = "mythic-producer-471010-k0-gcs-to-bq"
 ARTIFACTS_GCS_BASE = f"gs://{BUCKET}/artifacts"
 DATASET = os.getenv("DATASET", "primary").lower()
 ARTIFACTS_GCS_PREFIX = f"{ARTIFACTS_GCS_BASE}/datasets/{DATASET}"

@@ -64,10 +64,14 @@ def train_eval_xgb(X_tr, y_tr, X_va, y_va) -> Tuple[Dict[str, Any], xgb.XGBClass
     metrics = _metrics_dict(y_va, pred, proba)
     booster = model.get_booster()
     with tempfile.TemporaryDirectory() as td:
-        local = os.path.join(td, "xgb_model.bst")
+        local = os.path.join(td, "model.bst")
         booster.save_model(local)
         with open(local, "rb") as f:
-            _upload_bytes(f.read(), f"{ARTIFACTS_GCS_PREFIX}/models/xgb_model.bst")
+            _upload_bytes(
+                f.read(),
+                f"{ARTIFACTS_GCS_PREFIX}/models/xgb/model.bst",
+                "application/octet-stream",
+            )
 
     _save_text(json.dumps({"params": params, "class_ratio": {"neg": neg, "pos": pos}}, indent=2),
                "models/xgb_params.json")
